@@ -1,3 +1,3 @@
 
-Delphi translation of SunCalc JavaScript library (https://github.com/mourner/suncalc).
+Delphi port of SunCalc JavaScript library (https://github.com/mourner/suncalc).
 
