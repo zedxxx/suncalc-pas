@@ -2,6 +2,8 @@
 SunCalc
 =======
 
+[![Build Status](https://travis-ci.org/mourner/suncalc.svg?branch=master)](https://travis-ci.org/mourner/suncalc)
+
 SunCalc is a tiny BSD-licensed JavaScript library for calculating sun position,
 sunlight phases (times for sunrise, sunset, dusk, etc.),
 moon position and lunar phase for the given location and time,
@@ -103,6 +105,7 @@ Returns an object with the following properties:
  * `altitude`: moon altitude above the horizon in radians
  * `azimuth`: moon azimuth in radians
  * `distance`: distance to moon in kilometers
+ * `parallacticAngle`: parallactic angle of the moon in radians
 
 
 ### Moon illumination
@@ -131,8 +134,41 @@ Moon phase value should be interpreted like this:
 | 0.75  | Last Quarter    |
 |       | Waning Crescent |
 
+By subtracting the `parallacticAngle` from the `angle` one can get the zenith angle of the moons bright limb (anticlockwise).
+The zenith angle can be used do draw the moon shape from the observers perspective (e.g. moon lying on its back).
+
+### Moon rise and set times
+
+```js
+SunCalc.getMoonTimes(/*Date*/ date, /*Number*/ latitude, /*Number*/ longitude[, inUTC])
+```
+
+Returns an object with the following properties:
+
+ * `rise`: moonrise time as `Date`
+ * `set`: moonset time as `Date`
+ * `alwaysUp`: `true` if the moon never rises/sets and is always _above_ the horizon during the day
+ * `alwaysDown`: `true` if the moon is always _below_ the horizon
+
+By default, it will search for moon rise and set during local user's day (frou 0 to 24 hours).
+If `inUTC` is set to true, it will instead search the specified date from 0 to 24 UTC hours.
 
 ## Changelog
+
+#### 1.8.0 &mdash; Dec 22, 2016
+
+- Improved precision of moonrise/moonset calculations.
+- Added `parallacticAngle` calculation to `getMoonPosition`.
+- Default to today's date in `getMoonIllumination`.
+- Fixed incompatibility when using Browserify/Webpack together with a global AMD loader.
+
+#### 1.7.0 &mdash; Nov 11, 2015
+
+- Added `inUTC` argument to `getMoonTimes`.
+
+#### 1.6.0 &mdash; Oct 27, 2014
+
+- Added `SunCalc.getMoonTimes` for calculating moon rise and set times.
 
 #### 1.5.1 &mdash; May 16, 2014
 
