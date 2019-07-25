@@ -10,3 +10,4 @@ syntax: glob
 *.dproj.local
 *.identcache
 *.cbk
+*.exe

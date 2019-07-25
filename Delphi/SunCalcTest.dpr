@@ -39,6 +39,7 @@ var
   VLat, VLon: Double;
   VSunPos: TSunPos;
   VMoonPos: TMoonPos;
+  VMoonTimes: TMoonTimes;
   VMoonIllum: TMoonIllumination;
   VStr1, VStr2: string;
 begin
@@ -49,6 +50,8 @@ begin
   VLat := 50.5;
   VLon := 30.5;
 
+  // sun tests
+  
   VSunPos := SunCalc.GetPosition(VDate, VLat, VLon);
 
   Assert(CompareValue(VSunPos.Azimuth, -2.5003175907168385, cEpsilon) = EqualsValue);
@@ -83,10 +86,12 @@ begin
     Assert(VTimes[I].IsRiseInfo = VTestTimes[I].IsRiseInfo);
   end;
 
+  // moon tests
+
   VMoonPos := SunCalc.GetMoonPosition(VDate, VLat, VLon);
 
   Assert(CompareValue(VMoonPos.Azimuth, -0.9783999522438226, cEpsilon) = EqualsValue);
-  Assert(CompareValue(VMoonPos.Altitude, 0.006969727754891917, cEpsilon) = EqualsValue);
+  Assert(CompareValue(VMoonPos.Altitude, 0.014551482243892251, cEpsilon) = EqualsValue);
   Assert(CompareValue(VMoonPos.Distance, 364121.37256256194, cEpsilon) = EqualsValue);
 
   VMoonIllum := SunCalc.GetMoonIllumination(VDate);
@@ -94,86 +99,26 @@ begin
   Assert(CompareValue(VMoonIllum.Fraction, 0.4848068202456373, cEpsilon) = EqualsValue);
   Assert(CompareValue(VMoonIllum.Phase, 0.7548368838538762, cEpsilon) = EqualsValue);
   Assert(CompareValue(VMoonIllum.Angle, 1.6732942678578346, cEpsilon) = EqualsValue);
-end;
 
-procedure StressTest;
-const
-  cEpsilon = 1E-10;
-  cIDstr: array[TSunCalcTimesID] of string = (
-    'solarNoon',
-    'nadir',
-    'sunrise',
-    'sunset',
-    'sunriseEnd',
-    'sunsetStart',
-    'dawn',
-    'dusk',
-    'nauticalDawn',
-    'nauticalDusk',
-    'nightEnd',
-    'night',
-    'goldenHourEnd',
-    'goldenHour'
-  );
-var
-  I, J, K: Integer;
-//  ID: TSunCalcTimesID;
-  VDate: TDateTime;
-  VTimes: TSunCalcTimes;
-  //VTestTimes: TSunCalcTimes;
-  VFormatSettings: TFormatSettings;
-  //VLat, VLon: Double;
-  VSunPos: TSunPos;
-  //VMoonPos: TMoonPos;
-  //VMoonFraction: Double;
-  //VStr1, VStr2: string;
-begin
-  VFormatSettings.DateSeparator := '-';
-  VFormatSettings.ShortDateFormat := 'yyyy-mm-dd';
+  VDate := StrToDate('2013-03-04', VFormatSettings);
+  VMoonTimes := SunCalc.GetMoonTimes(VDate, VLat, VLon);
 
-  VDate := StrToDate('2014-01-01', VFormatSettings);
+  VStr1 := DateTimeToStr(VMoonTimes.MoonRise);
+  VStr2 := DateTimeToStr(ISOToDateTime('2013-03-04T23:54:29Z'));
+  Assert(SameText(VStr1, VStr2));
 
-
-  for I := 0 to 365 do begin
-  
-    VDate := IncDay(VDate);
-    Writeln(DateTimeToStr(VDate));
-
-    for J := -180 to 180 do begin
-      for K := -90 to 90 do begin
-
-        VTimes := SunCalc.GetTimes(VDate, J, K);
-        {
-        for ID := Low(VTimes) to High(VTimes) do begin
-          if VTimes[ID].Value = 0 then begin
-            Writeln(
-              DateTimeToStr(VDate) + '  -  ' +
-              cIDstr[ID] + //': ' + DateTimeToStr(VTimes[ID].Value) +
-              '  -  ' + FloatToStr(J) + '; ' + FloatToStr(K)
-            );
-          end;
-        end;
-        }
-        if VTimes[solarNoon].Value <> 0 then begin
-          VSunPos := SunCalc.GetPosition(VTimes[solarNoon].Value, J, K);
-        end else begin
-          VSunPos := SunCalc.GetPosition(VDate, J, K);
-        end;
-
-      end;
-    end;
-
-  end;
+  VStr1 := DateTimeToStr(VMoonTimes.MoonSet);
+  VStr2 := DateTimeToStr(ISOToDateTime('2013-03-04T07:47:58Z'));
+  Assert(SameText(VStr1, VStr2));
 end;
 
 begin
   try
     TestSunCalcUnit;
-    //StressTest;
     Writeln('Done.');
-    Readln;
   except
     on E:Exception do
       Writeln(E.Classname, ': ', E.Message);
   end;
+  Readln;
 end.

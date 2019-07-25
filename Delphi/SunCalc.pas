@@ -24,8 +24,8 @@ TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF TH
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
-(c) 2011-2014, Vladimir Agafonkin
-SunCalc is a JavaScript library for calculating sun/mooon position and light phases.
+(c) 2011-2015, Vladimir Agafonkin
+SunCalc is a JavaScript library for calculating sun/moon position and light phases.
 https://github.com/mourner/suncalc
 
 *)
@@ -41,9 +41,10 @@ type
   end;
 
   TMoonPos = record
-    Azimuth  : Double;
-    Altitude : Double;
-    Distance : Double;
+    Azimuth          : Double;
+    Altitude         : Double;
+    Distance         : Double;
+    ParallacticAngle : Double;
   end;
 
   TMoonIllumination = record
@@ -68,6 +69,11 @@ type
     Angle    : Double;  // midpoint angle in radians of the illuminated limb of
                         // the moon reckoned eastward from the north point of the disk;
                         // the moon is waxing if the angle is negative, and waning if positive
+  end;
+
+  TMoonTimes = record
+    MoonRise : TDateTime;
+    MoonSet  : TDateTime;
   end;
 
   TSunCalcTimesID = (
@@ -98,6 +104,7 @@ type
 function GetPosition(const ADate: TDateTime; const ALat, ALon: Double): TSunPos;
 function GetTimes(const ADate: TDateTime; const ALat, ALon: Double): TSunCalcTimes;
 
+function GetMoonTimes(const ADate: TDateTime; const ALat, ALon: Double): TMoonTimes;
 function GetMoonPosition(const ADate: TDateTime; const ALat, ALon: Double): TMoonPos;
 function GetMoonIllumination(const ADate: TDateTime): TMoonIllumination;
 
@@ -147,8 +154,6 @@ const
 
 const
   cRad   = Pi / 180;
-  cDayMs = 1000 * 60 * 60 * 24;
-  J1970  = 2440588;
   J2000  = 2451545;
   e      = cRad * 23.4397; // obliquity of the Earth
   J0     = 0.0009;
@@ -162,56 +167,67 @@ end;
 
 // date/time constants and conversions
 
-function toJulian(const AValue: TDateTime): Double;
+function toJulian(const AValue: TDateTime): Double; inline;
 begin
-  Result :=  DateTimeToJulianDate(AValue);
+  Result := DateTimeToJulianDate(AValue);
 end;
 
-function fromJulian(const AValue: Double): TDateTime;
+function fromJulian(const AValue: Double): TDateTime; inline;
 begin
   Result := JulianDateToDateTime(AValue);
 end;
 
-function toDays(const AValue: TDateTime): Double;
+function toDays(const AValue: TDateTime): Double; inline;
 begin
   Result := toJulian(AValue) - J2000;
 end;
 
 // general calculations for position
 
-function getRightAscension(const l, b: Double): Double;
+function getRightAscension(const l, b: Double): Double; inline;
 begin
   result := ArcTan2(sin(l) * cos(e) - tan(b) * sin(e), cos(l));
 end;
 
-function getDeclination(const l, b: Double): Double;
+function getDeclination(const l, b: Double): Double; inline;
 begin
   Result := ArcSin(sin(b) * cos(e) + cos(b) * sin(e) * sin(l));
 end;
 
-function getAzimuth(const H, phi, dec: Double): Double;
+function getAzimuth(const H, phi, dec: Double): Double; inline;
 begin
   Result := ArcTan2(sin(H), cos(H) * sin(phi) - tan(dec) * cos(phi));
 end;
 
-function getAltitude(const H, phi, dec: Double): Double;
+function getAltitude(const H, phi, dec: Double): Double; inline;
 begin
   Result := ArcSin(sin(phi) * sin(dec) + cos(phi) * cos(dec) * cos(H));
 end;
 
-function getSiderealTime(const d, lw: Double): Double;
+function getSiderealTime(const d, lw: Double): Double; inline;
 begin
   Result := cRad * (280.16 + 360.9856235 * d) - lw;
 end;
 
+function astroRefraction(h: Double): Double; inline;
+begin
+  if h < 0 then begin // the following formula works for positive altitudes only.
+    h := 0; // if h = -0.08901179 a div/0 would occur.
+  end;
+
+  // formula 16.4 of "Astronomical Algorithms" 2nd edition by Jean Meeus (Willmann-Bell, Richmond) 1998.
+  // 1.02 / tan(h + 10.26 / (h + 5.10)) h in degrees, result in arc minutes -> converted to rad:
+  Result := 0.0002967 / tan(h + 0.00312536 / (h + 0.08901179));
+end;
+
 // general sun calculations
 
-function getSolarMeanAnomaly(const d: Double): Double;
+function getSolarMeanAnomaly(const d: Double): Double; inline;
 begin
   Result := cRad * (357.5291 + 0.98560028 * d);
 end;
 
-function getEclipticLongitude(const M: Double): Double;
+function getEclipticLongitude(const M: Double): Double; inline;
 var
   P, C: Double;
 begin
@@ -220,7 +236,7 @@ begin
   Result := M + C + P + PI;
 end;
 
-function getSunCoords(const d: Double): TSunCoords;
+function getSunCoords(const d: Double): TSunCoords; inline;
 var
   M, L: Double;
 begin
@@ -252,22 +268,22 @@ end;
 
 // calculations for sun times
 
-function getJulianCycle(const d, lw: Double): Double;
+function getJulianCycle(const d, lw: Double): Double; inline;
 begin
   Result := Round(d - J0 - lw / (2 * PI));
 end;
 
-function getApproxTransit(const Ht, lw: Double; const n: Double): Double;
+function getApproxTransit(const Ht, lw: Double; const n: Double): Double; inline;
 begin
   Result := J0 + (Ht + lw) / (2 * PI) + n;
 end;
 
-function getSolarTransitJ(const ds, M, L: Double): Double;
+function getSolarTransitJ(const ds, M, L: Double): Double; inline;
 begin
   Result := J2000 + ds + 0.0053 * sin(M) - 0.0069 * sin(2 * L);
 end;
 
-function getHourAngle(const h, phi, d: Double): Double;
+function getHourAngle(const h, phi, d: Double): Double; inline;
 var
   X: Double;
 begin
@@ -285,7 +301,7 @@ function GetTimes(const ADate: TDateTime; const ALat, ALon: Double): TSunCalcTim
 var
   lw, phi, d, ds, M, L, dec, Jnoon: Double;
   n, h, w, a: Double;
-  I: TSunCalcTimesID;
+  i: TSunCalcTimesID;
   Jset, Jrise: Double;
 begin
 
@@ -310,20 +326,20 @@ begin
     Result[nadir].Value     := fromJulian(Jnoon - 0.5);
   end;
 
-  for I := Low(Result) to High(Result) do begin
-    if (I <> solarNoon) and (I <> nadir) then begin
+  for i := Low(Result) to High(Result) do begin
+    if (i <> solarNoon) and (i <> nadir) then begin
 
-      h := Result[I].Angle * cRad;
+      h := Result[i].Angle * cRad;
       w := getHourAngle(h, phi, dec);
       a := getApproxTransit(w, lw, n);
       Jset := getSolarTransitJ(a, M, L);
 
       if not IsNan(Jset) then begin
-        if Result[I].IsRiseInfo then begin
+        if Result[i].IsRiseInfo then begin
           Jrise := Jnoon - (Jset - Jnoon);
-          Result[I].Value := fromJulian(Jrise);
+          Result[i].Value := fromJulian(Jrise);
         end else begin
-          Result[I].Value := fromJulian(Jset);
+          Result[i].Value := fromJulian(Jset);
         end;
       end;
     end;
@@ -351,7 +367,7 @@ end;
 
 function GetMoonPosition(const ADate: TDateTime; const ALat, ALon: Double): TMoonPos;
 var
-  lw, phi, d, H, h1: Double;
+  lw, phi, d, H, h1, pa: Double;
   c: TMoonCoords;
 begin
   lw  := cRad * (-ALon);
@@ -362,12 +378,15 @@ begin
   H  := getSiderealTime(d, lw) - c.ra;
   h1 := getAltitude(H, phi, c.dec);
 
-  // altitude correction for refraction
-  h1 := h1 + cRad * 0.017 / tan(h1 + cRad * 10.26 / (h1 + cRad * 5.10));
+  // formula 14.1 of "Astronomical Algorithms" 2nd edition by Jean Meeus (Willmann-Bell, Richmond) 1998.
+  pa := ArcTan2(sin(H), tan(phi) * cos(c.dec) - sin(c.dec) * cos(H));
+
+  h1 := h1 + astroRefraction(h1); // altitude correction for refraction
 
   Result.Azimuth  := getAzimuth(H, phi, c.dec);
   Result.Altitude := h1;
   Result.Distance := c.dist;
+  Result.ParallacticAngle := pa;
 end;
 
 // calculations for illumination parameters of the moon,
@@ -403,75 +422,82 @@ begin
   Result.Angle := angle;
 end;
 
-(*
-
-
-https://github.com/mourner/suncalc/pull/21
-
-
-function hoursLater(date, h) {
-    return new Date(date.valueOf() + h * dayMs / 24);
-}
+function hoursLater(const ADate: TDateTime; const h: Double): TDateTime; inline;
+begin
+  Result := IncMilliSecond(ADate, Round(h * 60 * 60 * 1000));
+end;
 
 // calculations for moon rise/set times are based on http://www.stargazing.net/kepler/moonrise.html article
 
-SunCalc.getMoonTimes = function (date, lat, lng) {
-    var t = new Date(date);
-    t.setHours(0);
-    t.setMinutes(0);
-    t.setSeconds(0);
-    t.setMilliseconds(0);
+function GetMoonTimes(const ADate: TDateTime; const ALat, ALon: Double): TMoonTimes;
+var
+  t: TDateTime;
+  i, roots: Integer;
+  hc, h0, h1, h2, rise, set_, a, b, xe, ye, d, x1, x2, dx: Double;
+begin
+  Result.MoonRise := 0;
+  Result.MoonSet := 0;
 
-    var hc = 0.133 * rad,
-        h0 = SunCalc.getMoonPosition(t, lat, lng).altitude - hc,
-        h1, h2, rise, set, a, b, xe, ye, d, roots, x1, x2, dx;
+  rise := 0;
+  set_ := 0;
 
-    // go in 2-hour chunks, each time seeing if a 3-point quadratic curve crosses zero (which means rise or set)
-    for (var i = 1; i <= 24; i += 2) {
-        h1 = SunCalc.getMoonPosition(hoursLater(t, i), lat, lng).altitude - hc;
-        h2 = SunCalc.getMoonPosition(hoursLater(t, i + 1), lat, lng).altitude - hc;
+  t := DateOf(ADate);
 
-        a = (h0 + h2) / 2 - h1;
-        b = (h2 - h0) / 2;
-        xe = -b / (2 * a);
-        ye = (a * xe + b) * xe + h1;
-        d = b * b - 4 * a * h1;
-        roots = 0;
+  hc := 0.133 * cRad;
+  h0 := GetMoonPosition(t, ALat, ALon).altitude - hc;
 
-        if (d >= 0) {
-            dx = Math.sqrt(d) / (Math.abs(a) * 2);
-            x1 = xe - dx;
-            x2 = xe + dx;
-            if (Math.abs(x1) <= 1) roots++;
-            if (Math.abs(x2) <= 1) roots++;
-            if (x1 < -1) x1 = x2;
-        }
+  // go in 2-hour chunks, each time seeing if a 3-point quadratic curve crosses
+  // zero (which means rise or set)
+  i := 1;
+  while (i <= 24) do begin
+    h1 := GetMoonPosition(hoursLater(t, i), ALat, ALon).altitude - hc;
+    h2 := GetMoonPosition(hoursLater(t, i + 1), ALat, ALon).altitude - hc;
 
-        if (roots === 1) {
-            if (h0 < 0) rise = i + x1;
-            else set = i + x1;
+    a := (h0 + h2) / 2 - h1;
+    b := (h2 - h0) / 2;
+    xe := -b / (2 * a);
+    ye := (a * xe + b) * xe + h1;
+    d := b * b - 4 * a * h1;
 
-        } else if (roots === 2) {
-            rise = i + (ye < 0 ? x2 : x1);
-            set = i + (ye < 0 ? x1 : x2);
-        }
+    x1 := 0;
+    x2 := 0;
+    roots := 0;
 
-        if (rise && set) break;
+    if (d >= 0) then begin
+      dx := sqrt(d) / (abs(a) * 2);
+      x1 := xe - dx;
+      x2 := xe + dx;
+      if abs(x1) <= 1 then Inc(roots);
+      if abs(x2) <= 1 then Inc(roots);
+      if x1 < -1 then x1 := x2;
+    end;
 
-        h0 = h2;
-    }
+    if roots = 1 then begin
+      if h0 < 0 then begin
+        rise := i + x1;
+      end else begin
+        set_ := i + x1;
+      end;
+    end else if roots = 2 then begin
+      if ye < 0 then begin
+        rise := i + x2;
+        set_ := i + x1;
+      end else begin
+        rise := i + x1;
+        set_ := i + x2;
+      end;
+    end;
 
-    var result = {};
+    if (rise > 0) and (set_ > 0) then
+      Break;
 
-    if (rise) result.rise = hoursLater(t, rise);
-    if (set) result.set = hoursLater(t, set);
+    h0 := h2;
 
-    if (!rise && !set) result[ye > 0 ? 'alwaysUp' : 'alwaysDown'] = true;
+    Inc(i, 2);
+  end;
 
-    return result;
-};
-
-
-*)
+  if (rise > 0) then Result.MoonRise := hoursLater(t, rise);
+  if (set_ > 0) then Result.MoonSet := hoursLater(t, set_);
+end;
 
 end.
