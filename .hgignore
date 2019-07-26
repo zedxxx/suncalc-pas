@@ -11,3 +11,4 @@ syntax: glob
 *.identcache
 *.cbk
 *.exe
+.bin/*

@@ -7,7 +7,7 @@ uses
   Math,
   DateUtils,
   SysUtils,
-  SunCalc in 'SunCalc.pas';
+  SunCalc in '..\SunCalc.pas';
 
 function ISOToDateTime(const AISODateTime: string): TDateTime;
 var
@@ -115,7 +115,7 @@ end;
 begin
   try
     TestSunCalcUnit;
-    Writeln('Done.');
+    Writeln('Done');
   except
     on E:Exception do
       Writeln(E.Classname, ': ', E.Message);
