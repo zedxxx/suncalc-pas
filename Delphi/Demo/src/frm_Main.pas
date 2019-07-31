@@ -20,7 +20,6 @@ type
   TfrmMain = class(TForm)
     dtpDate: TDateTimePicker;
     dtpTime: TDateTimePicker;
-    lblDateTime: TLabel;
     edtLat: TEdit;
     edtLon: TEdit;
     lblLat: TLabel;
@@ -29,9 +28,14 @@ type
     btnCalc: TButton;
     btnExit: TButton;
     pnlCenter: TPanel;
-    pnlBottom: TPanel;
     mmoSun: TMemo;
     mmoMoon: TMemo;
+    imgMoonPhase: TImage;
+    lblMoonPhase: TLabel;
+    lblDate: TLabel;
+    lblTime: TLabel;
+    edtTimeZone: TEdit;
+    lblTzOffset: TLabel;
     procedure btnExitClick(Sender: TObject);
     procedure btnCalcClick(Sender: TObject);
     procedure btnNowClick(Sender: TObject);
@@ -49,7 +53,8 @@ uses
   DateUtils,
   u_Sun,
   u_Moon,
-  u_Tools;
+  u_CommonTools,
+  u_DateTimeTools;
 
 function GetIniFileName: string; inline;
 begin
@@ -62,20 +67,24 @@ procedure TfrmMain.btnCalcClick(Sender: TObject);
 var
   VLat, VLon: Double;
   VDate: TDateTime;
+  VUtcOffset: Double;
 begin
   VLat := StrToCoord(edtLat.Text);
   VLon := StrToCoord(edtLon.Text);
 
   VDate := DateOf(dtpDate.DateTime) + TimeOf(dtpTime.DateTime);
-  VDate := LocalToUniversalTime(VDate);
+  VUtcOffset := StrToUtcOffset(Trim(edtTimeZone.Text));
+  VDate := LocalToUniversalTime(VDate, VUtcOffset);
 
   mmoMoon.Lines.Clear;
   mmoMoon.Lines.Add('Moon' + #13#10);
-  mmoMoon.Lines.Add( GetMoonInfo(VDate, VLat, VLon) );
+  mmoMoon.Lines.Add( GetMoonInfo(VDate, VUtcOffset, VLat, VLon) );
+
+  DrawMoonPhase(imgMoonPhase, VDate, VLat, VLon);
 
   mmoSun.Lines.Clear;
   mmoSun.Lines.Add('Sun' + #13#10);
-  mmoSun.Lines.Add( GetSunInfo(VDate, VLat, VLon) );
+  mmoSun.Lines.Add( GetSunInfo(VDate, VUtcOffset, VLat, VLon) );
 end;
 
 procedure TfrmMain.btnNowClick(Sender: TObject);
@@ -85,6 +94,7 @@ begin
   VNow := Now;
   dtpDate.DateTime := DateOf(VNow);
   dtpTime.DateTime := TimeOf(VNow);
+  edtTimeZone.Text := UtcOffsetToStr( GetSystemTzOffset(VNow) );
 end;
 
 procedure TfrmMain.btnExitClick(Sender: TObject);
@@ -94,7 +104,7 @@ end;
 
 procedure TfrmMain.FormShow(Sender: TObject);
 begin
-  btnNowClick(Sender);
+  btnNow.Click;
 
   with TIniFile.Create(GetIniFileName) do
   try
@@ -105,20 +115,12 @@ begin
   end;
 
   SetFocusedControl(btnCalc);
+  btnCalc.Click;
 end;
 
 procedure TfrmMain.FormClose(Sender: TObject; var Action: TCloseAction);
-var
-  VFileName: string;
 begin
-  VFileName := GetIniFileName;
-
-  if not FileExists(VFileName) then begin
-    with TFileStream.Create(VFileName, fmCreate) do
-      Free;
-  end;
-
-  with TIniFile.Create(VFileName) do
+  with TIniFile.Create(GetIniFileName) do
   try
     WriteString('Main', 'Lat', edtLat.Text);
     WriteString('Main', 'Lon', edtLon.Text);

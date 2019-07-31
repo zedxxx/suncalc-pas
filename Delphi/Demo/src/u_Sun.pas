@@ -2,7 +2,8 @@ unit u_Sun;
 
 interface
 
-function GetSunInfo(const AUtcDate: TDateTime; const ALat, ALon: Double): string;
+function GetSunInfo(const AUtcDate: TDateTime; const AUtcOffset: Double;
+  const ALat, ALon: Double): string;
 
 implementation
 
@@ -10,20 +11,30 @@ uses
   Math,
   SysUtils,
   SunCalc,
-  u_Tools;
+  u_CommonTools,
+  u_DateTimeTools;
 
-function GetSunInfo(const AUtcDate: TDateTime; const ALat, ALon: Double): string;
+function GetSunInfo(const AUtcDate: TDateTime; const AUtcOffset: Double;
+  const ALat, ALon: Double): string;
 
-  function SunTimeToStr(const AName: string; const AInfo: TSunCalcTimesInfo): string;
+  function SunTimeToStr(const AName: string; const AInfo: TSunCalcTimesInfo;
+    const AShowAlt: Boolean = False): string;
   var
     VPos: TSunPos;
+    VAltitude: string;
   begin
-    VPos := SunCalc.GetPosition(AInfo.Value, ALat, ALon);
-    Result :=
-      Format(
-        '%s:' + #09 + '%s [az: %.2f' + #176 + ']',
-        [AName, DateTimeFmt(AInfo.Value), RadToDeg(VPos.Azimuth + Pi)]
-      );
+    if AInfo.Value = 0 then begin
+      Result := AName + ':' + #09 + ' - ';
+    end else begin
+      VPos := SunCalc.GetPosition(AInfo.Value, ALat, ALon);
+      if AShowAlt then begin
+        VAltitude := Format(' alt: %.2f', [RadToDeg(VPos.Altitude)]);
+      end else begin
+        VAltitude := '';
+      end;
+      Result := Format('%s:' + #09 + '%s [az: %.2f' + #176 + '%s]',
+        [AName, DateTimeFmt(AInfo.Value, AUtcOffset), RadToDeg(VPos.Azimuth + Pi), VAltitude]);
+    end;
   end;
 
 const
@@ -40,8 +51,8 @@ begin
   Result :=
     SunTimeToStr('Dawn', VTimes[dawn]) + CRLF +
     SunTimeToStr('Rise', VTimes[sunrise]) + CRLF +
-    SunTimeToStr('Noon', VTimes[solarNoon]) + CRLF +
-    SunTimeToStr('Set', VTimes[sunset]) + CRLF +
+    SunTimeToStr('Noon', VTimes[solarNoon], True) + CRLF +
+    SunTimeToStr('Set',  VTimes[sunset]) + CRLF +
     SunTimeToStr('Dusk', VTimes[dusk]) + CRLF + CRLF +
 
     'Azimuth:' + #09 + Format('%.2f', [RadToDeg(VPos.Azimuth + Pi)]) + CRLF +
