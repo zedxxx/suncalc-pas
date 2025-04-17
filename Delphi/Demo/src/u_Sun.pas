@@ -33,7 +33,7 @@ function GetSunInfo(const AUtcDate: TDateTime; const AUtcOffset: Double;
         VAltitude := '';
       end;
       Result := Format('%s:' + #09 + '%s [az: %.2f' + #176 + '%s]',
-        [AName, DateTimeFmt(AInfo.Value, AUtcOffset), RadToDeg(VPos.Azimuth + Pi), VAltitude]);
+        [AName, DateTimeFmt(AInfo.Value, AUtcOffset), RadToDeg(VPos.Azimuth), VAltitude]);
     end;
   end;
 
@@ -55,7 +55,7 @@ begin
     SunTimeToStr('Set',  VTimes[sunset]) + CRLF +
     SunTimeToStr('Dusk', VTimes[dusk]) + CRLF + CRLF +
 
-    'Azimuth:' + #09 + Format('%.2f', [RadToDeg(VPos.Azimuth + Pi)]) + CRLF +
+    'Azimuth:' + #09 + Format('%.2f', [RadToDeg(VPos.Azimuth)]) + CRLF +
     'Altitude:' + #09 + Format('%.2f', [RadToDeg(VPos.Altitude)]) + CRLF + CRLF +
 
     'Shadow:' + #09 + ShadowToStr(VPos.Altitude);

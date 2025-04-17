@@ -74,7 +74,7 @@ const
       Result :=
         Format(
           '%s:' + cTab + '%s [az: %.2f' + #176 + ']',
-          [AName, DateTimeFmt(ADateTime, AUtcOffset), RadToDeg(VPos.Azimuth + Pi)]
+          [AName, DateTimeFmt(ADateTime, AUtcOffset), RadToDeg(VPos.Azimuth)]
         );
     end;
   end;
@@ -104,7 +104,7 @@ begin
     MoonTimeToStr('Rise', VTimes.MoonRise) + CRLF +
     MoonTimeToStr('Set', VTimes.MoonSet) + CRLF + CRLF +
 
-    'Azimuth:' + cTab + Format('%.2f', [RadToDeg(VPos.Azimuth + Pi)]) + CRLF +
+    'Azimuth:' + cTab + Format('%.2f', [RadToDeg(VPos.Azimuth)]) + CRLF +
     'Altitude:' + cTab + Format('%.2f', [RadToDeg(VPos.Altitude)]) + CRLF +
     'Distance:' + cTab + Format('%.0f km', [VPos.Distance]) + CRLF +
     'Parallactic Angle: ' + Format('%.6f', [RadToDeg(VPos.ParallacticAngle)]) + CRLF + CRLF +
