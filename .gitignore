@@ -1,7 +1,9 @@
-# use glob syntax.
-syntax: glob
+/.bin/**
+/.dcu/**
+**/__history/**
+*.dsk
+*.res
 *.bak
-*.dcu
 *.~*
 *.dsk
 *.bpg
@@ -10,5 +12,3 @@ syntax: glob
 *.dproj.local
 *.identcache
 *.cbk
-*.exe
-.bin/*
