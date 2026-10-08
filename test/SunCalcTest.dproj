@@ -6,7 +6,7 @@
         <DCC_DependencyCheckOutputName>..\..\.bin\SunCalcTest.exe</DCC_DependencyCheckOutputName>
         <MainSource>SunCalcTest.dpr</MainSource>
         <FrameworkType>None</FrameworkType>
-        <ProjectVersion>20.2</ProjectVersion>
+        <ProjectVersion>20.5</ProjectVersion>
         <Base>True</Base>
         <Config Condition="'$(Config)'==''">Debug</Config>
         <Platform Condition="'$(Platform)'==''">Win32</Platform>

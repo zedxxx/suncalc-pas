@@ -8,7 +8,6 @@ function GetSunInfo(const AUtcDate: TDateTime; const AUtcOffset: Double;
 implementation
 
 uses
-  Math,
   SysUtils,
   SunCalc,
   u_CommonTools,
@@ -23,17 +22,17 @@ function GetSunInfo(const AUtcDate: TDateTime; const AUtcOffset: Double;
     VPos: TSunPos;
     VAltitude: string;
   begin
-    if AInfo.Value = 0 then begin
+    if not AInfo.HasValue then begin
       Result := AName + ':' + #09 + ' - ';
     end else begin
       VPos := SunCalc.GetPosition(AInfo.Value, ALat, ALon);
       if AShowAlt then begin
-        VAltitude := Format(' alt: %.2f', [RadToDeg(VPos.Altitude)]);
+        VAltitude := Format(' alt: %.2f', [VPos.Altitude]);
       end else begin
         VAltitude := '';
       end;
       Result := Format('%s:' + #09 + '%s [az: %.2f' + #176 + '%s]',
-        [AName, DateTimeFmt(AInfo.Value, AUtcOffset), RadToDeg(VPos.Azimuth), VAltitude]);
+        [AName, DateTimeFmt(AInfo.Value, AUtcOffset), VPos.Azimuth, VAltitude]);
     end;
   end;
 
@@ -42,21 +41,22 @@ const
 var
   VPos: TSunPos;
   VTimes: TSunCalcTimes;
+  VTimesArr: TSunCalcTimesArr;
 begin
-  NewSunCalcTimes(VTimes);
-
   VTimes := SunCalc.GetTimes(AUtcDate, ALat, ALon);
   VPos := SunCalc.GetPosition(AUtcDate, ALat, ALon);
 
-  Result :=
-    SunTimeToStr('Dawn', VTimes[dawn]) + CRLF +
-    SunTimeToStr('Rise', VTimes[sunrise]) + CRLF +
-    SunTimeToStr('Noon', VTimes[solarNoon], True) + CRLF +
-    SunTimeToStr('Set',  VTimes[sunset]) + CRLF +
-    SunTimeToStr('Dusk', VTimes[dusk]) + CRLF + CRLF +
+  VTimesArr := VTimes.Times;
 
-    'Azimuth:' + #09 + Format('%.2f', [RadToDeg(VPos.Azimuth)]) + CRLF +
-    'Altitude:' + #09 + Format('%.2f', [RadToDeg(VPos.Altitude)]) + CRLF + CRLF +
+  Result :=
+    SunTimeToStr('Dawn', VTimesArr[dawn]) + CRLF +
+    SunTimeToStr('Rise', VTimesArr[sunrise]) + CRLF +
+    SunTimeToStr('Noon', VTimesArr[solarNoon], True) + CRLF +
+    SunTimeToStr('Set',  VTimesArr[sunset]) + CRLF +
+    SunTimeToStr('Dusk', VTimesArr[dusk]) + CRLF + CRLF +
+
+    'Azimuth:' + #09 + Format('%.2f', [VPos.Azimuth]) + CRLF +
+    'Altitude:' + #09 + Format('%.2f', [VPos.Altitude]) + CRLF + CRLF +
 
     'Shadow:' + #09 + ShadowToStr(VPos.Altitude);
 end;

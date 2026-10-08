@@ -83,6 +83,7 @@ object frmMain: TfrmMain
     Time = 43671.928867870370000000
     Kind = dtkTime
     TabOrder = 2
+    OnChange = btnCalcClick
   end
   object edtLon: TEdit
     Left = 156
