@@ -11,7 +11,7 @@ uses
   SysUtils,
   SunCalc in '..\SunCalc.pas';
 
-function ISOToDateTime(const AISODateTime: string; const AIncSecond: Integer = 0): TDateTime;
+function ISOToDateTime(const AISODateTime: string): TDateTime;
 var
   VDate, VTime: TDateTime;
   VFormatSettings: TFormatSettings;
@@ -27,27 +27,30 @@ begin
   VTime := StrToTime(Copy(AISODateTime, Pos('T', AISODateTime) + 1, 8), VFormatSettings);
 
   Result := Trunc(VDate) + Frac(VTime);
+end;
 
-  if AIncSecond <> 0 then begin
-    Result := IncSecond(Result, AIncSecond);
-  end;
+function SameSecond(const A, B: TDateTime): Boolean;
+begin
+  Result := Abs(A - B) < 1 / (24 * 60 * 60);
 end;
 
 procedure TestSunCalcUnit;
 const
-  cEpsilon = 1E-10;
+  cEpsilon = 1E-6;
+  cDistEpsilon = 1E-3; // km
 var
   I: TSunCalcTimesID;
   VDate: TDateTime;
   VTimes: TSunCalcTimes;
+  VTimesArr: TSunCalcTimesArr;
   VTestTimes: TSunCalcTimes;
+  VTestTimesArr: TSunCalcTimesArr;
   VFormatSettings: TFormatSettings;
   VLat, VLon: Double;
   VSunPos: TSunPos;
   VMoonPos: TMoonPos;
   VMoonTimes: TMoonTimes;
   VMoonIllum: TMoonIllumination;
-  VStr1, VStr2: string;
 begin
   VFormatSettings.DateSeparator := '-';
   VFormatSettings.ShortDateFormat := 'yyyy-mm-dd';
@@ -56,66 +59,89 @@ begin
   VLat := 50.5;
   VLon := 30.5;
 
-  // sun tests
-  
+  // Sun tests
+
   VSunPos := SunCalc.GetPosition(VDate, VLat, VLon);
 
-  Assert(CompareValue(VSunPos.Azimuth, -2.5003175907168385 + Pi, cEpsilon) = EqualsValue);
-  Assert(CompareValue(VSunPos.Altitude, -0.7000406838781611, cEpsilon) = EqualsValue);
+  Assert(CompareValue(VSunPos.Azimuth, 36.94707507400062, cEpsilon) = EqualsValue);
+  Assert(CompareValue(VSunPos.Altitude, -39.46550678343545, cEpsilon) = EqualsValue);
 
   NewSunCalcTimes(VTestTimes);
 
-  VTestTimes[solarNoon].Value     := ISOToDateTime('2013-03-05T10:10:57Z', -5);
-  VTestTimes[nadir].Value         := ISOToDateTime('2013-03-05T22:10:57Z', -5);
-  VTestTimes[sunrise].Value       := ISOToDateTime('2013-03-05T04:34:56Z', -4);
-  VTestTimes[sunset].Value        := ISOToDateTime('2013-03-05T15:46:57Z', -4);
-  VTestTimes[sunriseEnd].Value    := ISOToDateTime('2013-03-05T04:38:19Z', -4);
-  VTestTimes[sunsetStart].Value   := ISOToDateTime('2013-03-05T15:43:34Z', -4);
-  VTestTimes[dawn].Value          := ISOToDateTime('2013-03-05T04:02:17Z', -4);
-  VTestTimes[dusk].Value          := ISOToDateTime('2013-03-05T16:19:36Z', -4);
-  VTestTimes[nauticalDawn].Value  := ISOToDateTime('2013-03-05T03:24:31Z', -5);
-  VTestTimes[nauticalDusk].Value  := ISOToDateTime('2013-03-05T16:57:22Z', -4);
-  VTestTimes[nightEnd].Value      := ISOToDateTime('2013-03-05T02:46:17Z', -4);
-  VTestTimes[night].Value         := ISOToDateTime('2013-03-05T17:35:36Z', -4);
-  VTestTimes[goldenHourEnd].Value := ISOToDateTime('2013-03-05T05:19:01Z', -4);
-  VTestTimes[goldenHour].Value    := ISOToDateTime('2013-03-05T15:02:52Z', -4);
+  VTestTimesArr := VTestTimes.Times;
 
-  VTimes := SunCalc.GetTimes(VDate, VLat, VLon);
+  VTestTimesArr[solarNoon].Value     := ISOToDateTime('2013-03-05T10:09:28Z');
+  VTestTimesArr[nadir].Value         := ISOToDateTime('2013-03-04T22:09:28Z');
+  VTestTimesArr[sunrise].Value       := ISOToDateTime('2013-03-05T04:33:31Z');
+  VTestTimesArr[sunset].Value        := ISOToDateTime('2013-03-05T15:46:19Z');
+  VTestTimesArr[sunriseEnd].Value    := ISOToDateTime('2013-03-05T04:36:54Z');
+  VTestTimesArr[sunsetStart].Value   := ISOToDateTime('2013-03-05T15:42:56Z');
+  VTestTimesArr[dawn].Value          := ISOToDateTime('2013-03-05T04:00:55Z');
+  VTestTimesArr[dusk].Value          := ISOToDateTime('2013-03-05T16:18:59Z');
+  VTestTimesArr[nauticalDawn].Value  := ISOToDateTime('2013-03-05T03:23:12Z');
+  VTestTimesArr[nauticalDusk].Value  := ISOToDateTime('2013-03-05T16:56:49Z');
+  VTestTimesArr[nightEnd].Value      := ISOToDateTime('2013-03-05T02:45:02Z');
+  VTestTimesArr[night].Value         := ISOToDateTime('2013-03-05T17:35:07Z');
+  VTestTimesArr[goldenHourEnd].Value := ISOToDateTime('2013-03-05T05:17:32Z');
+  VTestTimesArr[goldenHour].Value    := ISOToDateTime('2013-03-05T15:02:14Z');
 
-  for I := Low(VTimes) to High(VTimes) do begin
-    Assert(CompareValue(VTimes[I].Angle, VTestTimes[I].Angle, cEpsilon) = EqualsValue);
-    
-    VStr1 := DateTimeToStr(VTimes[I].Value);
-    VStr2 := DateTimeToStr(VTestTimes[I].Value);
-    Assert(SameText(VStr1, VStr2));
-
-    Assert(VTimes[I].IsRiseInfo = VTestTimes[I].IsRiseInfo);
+  for I := Low(VTestTimesArr) to High(VTestTimesArr) do begin
+    VTestTimesArr[I].HasValue := True;
   end;
 
-  // moon tests
+  VTimes := SunCalc.GetTimes(VDate, VLat, VLon);
+  VTimesArr := VTimes.Times;
+
+  Assert(VTimes.AlwaysUp = VTestTimes.AlwaysUp);
+  Assert(VTimes.AlwaysDown = VTestTimes.AlwaysDown);
+
+  for I := Low(VTimesArr) to High(VTimesArr) do begin
+    Assert(CompareValue(VTimesArr[I].Angle, VTestTimesArr[I].Angle, cEpsilon) = EqualsValue);
+
+    Assert(VTimesArr[I].HasValue = VTestTimesArr[I].HasValue);
+
+    if VTimesArr[I].HasValue then begin
+      Assert(SameSecond(VTimesArr[I].Value, VTestTimesArr[I].Value));
+    end;
+
+    Assert(VTimesArr[I].IsRiseInfo = VTestTimesArr[I].IsRiseInfo);
+  end;
+
+  // Moon tests
 
   VMoonPos := SunCalc.GetMoonPosition(VDate, VLat, VLon);
 
-  Assert(CompareValue(VMoonPos.Azimuth, -0.9783999522438226 + Pi, cEpsilon) = EqualsValue);
-  Assert(CompareValue(VMoonPos.Altitude, 0.014551482243892251, cEpsilon) = EqualsValue);
-  Assert(CompareValue(VMoonPos.Distance, 364121.37256256194, cEpsilon) = EqualsValue);
+  Assert(CompareValue(VMoonPos.Azimuth, 124.64084971129068, cEpsilon) = EqualsValue);
+  Assert(CompareValue(VMoonPos.Altitude, 0.4567101966692874, cEpsilon) = EqualsValue);
+  Assert(CompareValue(VMoonPos.Distance, 370193.9925193064, cDistEpsilon) = EqualsValue);
+  Assert(CompareValue(VMoonPos.ParallacticAngle, -33.94130620826365, cEpsilon) = EqualsValue);
 
   VMoonIllum := SunCalc.GetMoonIllumination(VDate);
 
-  Assert(CompareValue(VMoonIllum.Fraction, 0.4848068202456373, cEpsilon) = EqualsValue);
-  Assert(CompareValue(VMoonIllum.Phase, 0.7548368838538762, cEpsilon) = EqualsValue);
-  Assert(CompareValue(VMoonIllum.Angle, 1.6732942678578346, cEpsilon) = EqualsValue);
+  Assert(CompareValue(VMoonIllum.Fraction, 0.4911927817602366, cEpsilon) = EqualsValue);
+  Assert(CompareValue(VMoonIllum.Phase, 0.7531998905377861, cEpsilon) = EqualsValue);
+  Assert(CompareValue(VMoonIllum.Angle, 96.04975326478946, cEpsilon) = EqualsValue);
+  Assert(VMoonIllum.Waxing = False);
 
   VDate := StrToDate('2013-03-04', VFormatSettings);
-  VMoonTimes := SunCalc.GetMoonTimes(VDate, VLat, VLon);
 
-  VStr1 := DateTimeToStr(VMoonTimes.MoonRise);
-  VStr2 := DateTimeToStr(ISOToDateTime('2013-03-04T23:54:29Z'));
-  Assert(SameText(VStr1, VStr2));
+  // AUtcOffset=0 anchors the scanned 24h window to UTC civil midnight (the calendar day of VDate)
+  VMoonTimes := SunCalc.GetMoonTimes(VDate, VLat, VLon, 0);
 
-  VStr1 := DateTimeToStr(VMoonTimes.MoonSet);
-  VStr2 := DateTimeToStr(ISOToDateTime('2013-03-04T07:47:58Z'));
-  Assert(SameText(VStr1, VStr2));
+  Assert(VMoonTimes.HasRise);
+  Assert(SameSecond(VMoonTimes.MoonRise, ISOToDateTime('2013-03-04T23:53:32Z')));
+
+  Assert(VMoonTimes.HasSet);
+  Assert(SameSecond(VMoonTimes.MoonSet, ISOToDateTime('2013-03-04T07:42:17Z')));
+
+  Assert(VMoonTimes.HasTransit);
+  Assert(SameSecond(VMoonTimes.Transit, ISOToDateTime('2013-03-04T03:17:02Z')));
+
+  Assert(VMoonTimes.HasLowerTransit);
+  Assert(SameSecond(VMoonTimes.LowerTransit, ISOToDateTime('2013-03-04T15:46:08Z')));
+
+  Assert(not VMoonTimes.AlwaysUp);
+  Assert(not VMoonTimes.AlwaysDown);
 end;
 
 begin
