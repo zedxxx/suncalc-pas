@@ -445,11 +445,17 @@ end;
 
 // start of the civil day containing ADate in a zone AUtcOffset minutes ahead of UTC, as a TDateTime
 function civilMidnight(const ADate: TDateTime; const AUtcOffset: Double): TDateTime;
+const
+  // Guards the exact-midnight boundary: ADate + offDays is a floating-point sum, and for
+  // non-dyadic offsets (e.g. 480 minutes) an instant that is mathematically exactly local
+  // midnight can land a few ulps below the integer day. That would make Floor choose the
+  // previous civil day. ~86 us is far below any meaningful input resolution.
+  cBoundaryEpsilon = 1E-9;
 var
   offDays: Double;
 begin
   offDays := AUtcOffset / (24 * 60);
-  Result := Floor(ADate + offDays) - offDays; // floor to a whole UTC day, then undo the shift
+  Result := Floor(ADate + offDays + cBoundaryEpsilon) - offDays; // floor to a whole UTC day, then undo the shift
 end;
 
 // solar transit (days since J2000) anchoring the day shared by GetTimes and GetMoonTimes: the one
