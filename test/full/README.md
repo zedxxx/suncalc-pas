@@ -55,6 +55,7 @@ Structural and regression tests:
 - Issue #187: `GetTimes` anchors the local solar day at every longitude
 - Issue #189: `GetMoonTimes` scans the same local solar day as `GetTimes`
 - Issue #191: grazing twilight/sunrise/sunset events, plus a full high-latitude sweep (every event inside its half day and at the configured altitude)
+- Issue #192: `GetTimes` with `utcOffset` reports only events inside the civil day, including events just before local midnight taken from the neighbouring solar day
 - UTC-offset overloads anchor both functions to the civil day (incl. the three historical regression cases and exact-midnight boundaries)
 - Moon transits occur exactly once per ~24.8 h and skip about one day a month
 - Issue #190: illumination phase crosses USNO phase instants (mean < 1 min, max < 2 min, measured by bisection)

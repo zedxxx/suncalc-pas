@@ -63,6 +63,15 @@ type
     Expected: string;
   end;
 
+  TCivilDayEventCase = record
+    Date: string;
+    Lat: Double;
+    Lon: Double;
+    UtcOffset: Double;
+    FieldID: TSunCalcTimesID;
+    Expected: string;
+  end;
+
 const
   cSecondsPerDay = 24 * 60 * 60;
   cMinutesPerDay = 24 * 60;
@@ -128,6 +137,13 @@ const
     (Day: '2026-05-18'; Lat: 69.6496; Lon: 18.956;  Field: 'sunrise';       Expected: '2026-05-17T22:52:02Z'),
     (Day: '2026-07-25'; Lat: 69.6496; Lon: 18.956;  Field: 'sunset';        Expected: '2026-07-25T22:37:09Z'),
     (Day: '2026-04-18'; Lat: 67;      Lon: 18.956;  Field: 'nauticalDusk';  Expected: 'null')
+  );
+
+  cCivilDayEventCases: array [0..2] of TCivilDayEventCase = (
+    // [civil date, lat, lng, utcOffset, field, expected UTC time or null]
+    (Date: '2026-06-01'; Lat: 42.2406; Lon: -8.7207; UtcOffset: 120; FieldID: night;  Expected: '2026-05-31T22:11:55Z'),
+    (Date: '2026-06-21'; Lat: 39.4704; Lon: 75.9898; UtcOffset: 480; FieldID: night;  Expected: '2026-06-20T16:27:38Z'),
+    (Date: '2026-07-25'; Lat: 69.6492; Lon: 18.9553; UtcOffset: 120; FieldID: sunset; Expected: 'null')
   );
 
 var
@@ -311,7 +327,7 @@ begin
                 [cSunTimeNames[LID], LLocName, LDate]));
           end;
 
-          if not LTimes.Times[sunrise].HasValue then
+          if (not LTimes.Times[sunrise].HasValue) and (not LTimes.Times[sunset].HasValue) then
           begin
             LSawPolar := True;
             Check(Ord(LTimes.AlwaysUp) + Ord(LTimes.AlwaysDown) = 1,
@@ -601,6 +617,51 @@ begin
         42.764767, -71.042023, -240);
       Check(LMoon.HasRise and LMoon.HasSet,
         'reporter input with offset should get both moonrise and moonset');
+    end);
+
+  RunTest('getTimes with utcOffset reports only events inside the civil day (issue #192)',
+    procedure
+    var
+      LC: TCivilDayEventCase;
+      LStart, LSample, LValue: TDateTime;
+      LTimes: TSunCalcTimes;
+      LContext: string;
+      K: Integer;
+    begin
+      for LC in cCivilDayEventCases do
+      begin
+        LStart := ParseISO(LC.Date + 'T00:00:00Z') - LC.UtcOffset / cMinutesPerDay;
+        for K := 0 to 2 do
+        begin
+          case K of
+            0: LSample := LStart;
+            1: LSample := LStart + 0.5;
+          else
+            // mirror the JavaScript case: one millisecond before civil midnight
+            LSample := LStart + 1 - 1 / (cSecondsPerDay * 1000);
+          end;
+
+          LContext := Format('%s %s', [LC.Date, cSunTimeNames[LC.FieldID]]);
+          LTimes := SunCalc.GetTimes(LSample, LC.Lat, LC.Lon, 0, LC.UtcOffset);
+          if LC.Expected = 'null' then
+          begin
+            Check(not LTimes.Times[LC.FieldID].HasValue,
+              Format('%s: expected no event, got %s',
+                [LContext, ISOText(LTimes.Times[LC.FieldID].Value)]));
+            Check(LTimes.AlwaysUp, Format('%s: expected AlwaysUp', [LContext]));
+          end
+          else
+          begin
+            Check(LTimes.Times[LC.FieldID].HasValue,
+              Format('%s: expected an event', [LContext]));
+            if LTimes.Times[LC.FieldID].HasValue then
+            begin
+              LValue := LTimes.Times[LC.FieldID].Value;
+              CheckTimeNear(LValue, ParseISO(LC.Expected), 60, LContext);
+            end;
+          end;
+        end;
+      end;
     end);
 
   RunTest('getMoonTimes reports each moon transit exactly once across consecutive days',
