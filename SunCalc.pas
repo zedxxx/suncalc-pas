@@ -25,7 +25,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 --------------------------------------------------------------------------------------------
 
-Delphi port of suncalc.js (https://github.com/mourner/suncalc) version 2.1.3
+Delphi port of suncalc.js (https://github.com/mourner/suncalc) version 2.1.4
 
 TSunPos.Azimuth/Altitude, TMoonPos.Azimuth/Altitude/ParallacticAngle, and
 TMoonIllumination.Angle are all returned in DEGREES.
@@ -383,11 +383,12 @@ end;
 // time the Sun reaches altitude h0 within the half day [a0, b0] between transit and nadir, given the
 // sine of its altitude at both ends; NaN if it doesn't cross h0 there (altitude is monotonic over the
 // half day, so a sign change means exactly one crossing). Seeds from the hour angle at transit
-// declination, then Newton on sin(h) kept inside a shrinking bracket, bisecting whenever a step
-// leaves it - on near-grazing days the slope is tiny and plain Newton steps land days away.
+// declination, then Newton on sin(h) kept inside a shrinking bracket, bisecting whenever a step leaves
+// it or fails to halve the previous step (as in rtsafe) - on near-grazing days the slope is tiny, so
+// plain Newton steps land days away or ping-pong inside the bracket, barely shrinking it.
 function getSetJ(const h0, a0, b0, sa, sb, dt, lw, phi, decT: Double): Double;
 var
-  a, b, s0, cosHA0, ha0, d, hourAngle, k, f, den, step: Double;
+  a, b, s0, cosHA0, ha0, d, dx, hourAngle, k, f, den, step: Double;
   rising: Boolean;
   c: TSunCoords;
 begin
@@ -395,8 +396,10 @@ begin
   b := b0;
   s0 := sin(h0);
   rising := sa < sb;
-  if (sa - s0) * (sb - s0) > 0 then begin
-    Result := NaN; // sun stays above / below this altitude all half day
+  // sun stays above / below this altitude all half day, or NaN input (tested explicitly: NaN
+  // comparisons are not reliably False in Delphi, and NaN here would make the loop below spin forever)
+  if IsNaN(sa) or IsNaN(sb) or IsNaN(s0) or ((sa - s0) * (sb - s0) > 0) then begin
+    Result := NaN;
     Exit;
   end;
 
@@ -406,6 +409,7 @@ begin
   else ha0 := ArcCos(cosHA0);
   if rising then d := dt - ha0 / (2 * PI)
   else d := dt + ha0 / (2 * PI);
+  dx := b - a;
 
   while True do begin
     c := getSunCoords(toDaysTT(d));
@@ -418,7 +422,8 @@ begin
     // a zero slope would be an infinite step in JS; here it just means "bisect instead"
     if den <> 0 then begin
       step := f / den;
-      if (d + step > a) and (d + step < b) then begin
+      if (d + step > a) and (d + step < b) and (abs(step) <= abs(dx) / 2) then begin
+        dx := step;
         d := d + step;
         if abs(step) < 1e-5 then begin // ~1 s step, so quadratic convergence leaves ~us error
           Result := d;
@@ -428,7 +433,8 @@ begin
       end;
     end;
 
-    d := (a + b) / 2;
+    dx := (b - a) / 2;
+    d := a + dx;
     if b - a < 1e-8 then begin
       Result := d;
       Exit;
@@ -478,6 +484,13 @@ var
   i: TSunCalcTimesID;
 begin
   NewSunCalcTimes(Result);
+
+  // NaN or infinite input: no events (the solve below would never converge on it, and Floor/Round
+  // raise on NaN in Delphi), so return the empty result, with no values and no polar flags
+  if IsNaN(ADate) or IsInfinite(ADate) or IsNaN(ALat) or IsInfinite(ALat) or IsNaN(ALon) or
+    IsInfinite(ALon) or IsNaN(AHeight) or IsInfinite(AHeight) or
+    (AHasUtcOffset and (IsNaN(AUtcOffset) or IsInfinite(AUtcOffset))) then
+    Exit;
 
   lw  := cRad * (-ALon);
   phi := cRad * ALat;

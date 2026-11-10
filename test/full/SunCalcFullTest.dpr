@@ -72,6 +72,12 @@ type
     Expected: string;
   end;
 
+  TNonFiniteCase = record
+    Date: TDateTime;
+    Lat, Lon, Height, UtcOffset: Double;
+    HasUtcOffset: Boolean;
+  end;
+
 const
   cSecondsPerDay = 24 * 60 * 60;
   cMinutesPerDay = 24 * 60;
@@ -399,6 +405,17 @@ end;
 
 // --- regression tests ported one-for-one from accuracy.test.js ---
 
+function MakeNonFiniteCase(const ADate: TDateTime; const ALat, ALon, AHeight, AUtcOffset: Double;
+  const AHasUtcOffset: Boolean): TNonFiniteCase;
+begin
+  Result.Date := ADate;
+  Result.Lat := ALat;
+  Result.Lon := ALon;
+  Result.Height := AHeight;
+  Result.UtcOffset := AUtcOffset;
+  Result.HasUtcOffset := AHasUtcOffset;
+end;
+
 procedure RunRegressionTests;
 begin
   RunTest('getMoonTimes no-crossing flag matches the actual altitude sign (issue #186)',
@@ -661,6 +678,48 @@ begin
             end;
           end;
         end;
+      end;
+    end);
+
+  RunTest('getTimes returns no events for NaN or infinite inputs instead of hanging (issue #193)',
+    procedure
+    var
+      LDate: TDateTime;
+      LCases: array of TNonFiniteCase;
+      LCase: TNonFiniteCase;
+      LTimes: TSunCalcTimes;
+      LID: TSunCalcTimesID;
+      LIndex: Integer;
+    begin
+      LDate := ParseISO('2026-08-28T12:00:00Z');
+      // same inputs as the JavaScript test; its `undefined` arguments are NaN for a Double
+      LCases := [
+        MakeNonFiniteCase(LDate, NaN, NaN, 0, 0, False),
+        MakeNonFiniteCase(LDate, NaN, 10, 0, 0, False),
+        MakeNonFiniteCase(LDate, 48.85, NaN, 0, 0, False),
+        MakeNonFiniteCase(NaN, 48.85, 2.35, 0, 0, False),
+        MakeNonFiniteCase(LDate, 48.85, 2.35, NaN, 0, False),
+        MakeNonFiniteCase(LDate, 48.85, 2.35, 0, NaN, True),
+        MakeNonFiniteCase(LDate, Infinity, 2.35, 0, 0, False),
+        MakeNonFiniteCase(LDate, 48.85, -Infinity, 0, 0, False),
+        MakeNonFiniteCase(LDate, 48.85, 2.35, Infinity, 0, False),
+        MakeNonFiniteCase(LDate, 48.85, 2.35, 0, Infinity, True),
+        MakeNonFiniteCase(Infinity, 48.85, 2.35, 0, 0, False)
+      ];
+
+      for LIndex := 0 to High(LCases) do
+      begin
+        LCase := LCases[LIndex];
+        if LCase.HasUtcOffset then
+          LTimes := SunCalc.GetTimes(LCase.Date, LCase.Lat, LCase.Lon, LCase.Height, LCase.UtcOffset)
+        else
+          LTimes := SunCalc.GetTimes(LCase.Date, LCase.Lat, LCase.Lon, LCase.Height);
+
+        for LID := Low(TSunCalcTimesID) to High(TSunCalcTimesID) do
+          Check(not LTimes.Times[LID].HasValue,
+            Format('case %d: %s should have no value', [LIndex, cSunTimeNames[LID]]));
+        Check(not LTimes.AlwaysUp, Format('case %d: AlwaysUp should be False', [LIndex]));
+        Check(not LTimes.AlwaysDown, Format('case %d: AlwaysDown should be False', [LIndex]));
       end;
     end);
 
